@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f2ed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Snaptime">
+  <meta name="description" content="Vintage photobooth - capture 3 photos and create a beautiful strip">
+  <title>Snaptime — Vintage Photobooth</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <!-- WELCOME -->
+  <div id="welcome" class="screen welcome active">
+    <div class="camera-hero">
+      <div class="polaroid-body">
+        <div class="flash-unit">
+          <div class="flash-window"></div>
+        </div>
+        <div class="viewfinder-box"></div>
+        <div class="lens-housing">
+          <div class="lens-inner">
+            <div class="lens-glass"></div>
+          </div>
+        </div>
+        <div class="shutter-btn-display"></div>
+        <div class="rainbow-stripe">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div class="film-slot"></div>
+      </div>
+    </div>
+
+    <h1>Snaptime</h1>
+    <p>Take 3 photos. Get a vintage strip.</p>
+
+    <div id="error" class="error-box hidden"></div>
+
+    <button id="startBtn" class="btn btn-primary">Start</button>
+  </div>
+
+  <!-- CAPTURE -->
+  <div id="capture" class="screen capture">
+    <div class="capture-header">
+      <div id="captureStatus" class="capture-status"></div>
+      <div class="photo-count-row">
+        <span class="photo-count">Photo <span id="photoNum">1</span>/3</span>
+        <div class="dots">
+          <div class="dot active" data-n="1"></div>
+          <div class="dot" data-n="2"></div>
+          <div class="dot" data-n="3"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="camera-section">
+      <div class="video-container">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="countdownBox" class="countdown-display hidden">
+          <span id="countdownNum" class="countdown-num">3</span>
+        </div>
+      </div>
+
+      <button id="captureBtn" class="capture-btn">
+        <div class="capture-btn-inner"></div>
+      </button>
+
+      <div id="miniPreviews" class="mini-previews">
+        <div class="mini-preview empty"></div>
+        <div class="mini-preview empty"></div>
+        <div class="mini-preview empty"></div>
+      </div>
+
+      <div class="color-picker">
+        <span class="color-picker-label">Frame</span>
+        <div id="colorOptions" class="color-options"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result" class="screen result">
+    <div class="result-layout">
+      <div class="result-camera">
+        <div class="polaroid-body">
+          <div class="flash-unit">
+            <div class="flash-window"></div>
+          </div>
+          <div class="viewfinder-box"></div>
+          <div class="lens-housing">
+            <div class="lens-inner">
+              <div class="lens-glass"></div>
+            </div>
+          </div>
+          <div class="shutter-btn-display"></div>
+          <div class="rainbow-stripe">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="film-slot"></div>
+        </div>
+
+        <div class="strip-container">
+          <div id="photoStrip" class="photo-strip" style="background: #fff; position: relative;">
+            <div id="stripPhotos" class="strip-photos"></div>
+            <div id="stripFooter" class="strip-footer" style="color: #1a1a1a;">snaptime</div>
+            <div id="stickersContainer"></div>
+            <div id="canvasContainer" class="strip-canvas-container">
+              <canvas id="drawCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions-section">
+        <!-- Frame Color Panel -->
+        <div class="panel">
+          <p class="panel-title">Frame Color</p>
+          <div id="review-colors" class="color-options"></div>
+        </div>
+
+        <!-- Stickers & Drawing Panel -->
+        <div class="panel">
+          <p class="panel-title">Decorate</p>
+          <div class="edit-tabs">
+            <button id="tabStickers" class="edit-tab active">✨ Stickers</button>
+            <button id="tabDraw" class="edit-tab">✏️ Draw</button>
+          </div>
+          
+          <div id="stickerPanel">
+            <div class="sticker-grid" id="stickerGrid"></div>
+            <div class="sticker-actions">
+              <button id="clearStickers" class="draw-action">🗑 Clear All Stickers</button>
+            </div>
+            <p class="edit-hint">Tap sticker → tap photo to place • Tap placed to delete</p>
+          </div>
+          
+          <div id="drawPanel" class="hidden">
+            <div class="draw-controls">
+              <div class="draw-row">
+                <span class="draw-label">Color</span>
+                <div class="draw-colors" id="drawColors"></div>
+              </div>
+              <div class="draw-row">
+                <span class="draw-label">Size</span>
+                <div class="draw-sizes" id="drawSizes"></div>
+              </div>
+              <div class="draw-actions">
+                <button id="undoDraw" class="draw-action">↩ Undo</button>
+                <button id="clearDraw" class="draw-action">Clear All</button>
+              </div>
+            </div>
+            <p class="edit-hint">Draw on your photos with a sketchy pencil</p>
+          </div>
+        </div>
+
+        <!-- Effects Panel -->
+        <div class="panel">
+          <p class="panel-title">Effects</p>
+          <div id="enhancement-grid" class="enhancement-grid"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button id="downloadBtn" class="btn btn-primary">
+            Download
+          </button>
+          <button id="resetBtn" class="btn btn-secondary">Start Over</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLASH -->
+  <div id="flash" class="flash-effect hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
