@@ -37,8 +37,11 @@ const state = {
   drawMode: false,
   drawHistory: [],
   drawCtx: null,
+  drawCtxMobile: null,
   lastX: 0,
-  lastY: 0
+  lastY: 0,
+  currentTool: 'colors',
+  isMobile: window.innerWidth <= 768
 };
 
 // ========== DOM HELPERS ==========
@@ -121,6 +124,7 @@ function showScreen(screenName) {
 // ========== COLOR MANAGEMENT ==========
 function renderColors(containerId) {
   const container = $(containerId);
+  if (!container) return;
   container.innerHTML = '';
   COLORS.forEach(c => {
     const btn = document.createElement('button');
@@ -136,17 +140,27 @@ function renderColors(containerId) {
 
 function selectFrameColor(c) {
   state.frameColor = c;
-  document.querySelectorAll('.color-opt').forEach(btn => btn.classList.remove('selected'));
+  
+  // Update all color option buttons
   document.querySelectorAll('.color-opt').forEach(btn => {
+    btn.classList.remove('selected');
     if (btn.style.backgroundColor === c.bg || btn.style.backgroundColor === hexToRgb(c.bg)) {
       btn.classList.add('selected');
     }
   });
   
+  // Update desktop strip
   const strip = $('photoStrip');
   if (strip) {
     strip.style.backgroundColor = c.bg;
     $('stripFooter').style.color = c.text;
+  }
+  
+  // Update mobile strip
+  const stripMobile = $('photoStripMobile');
+  if (stripMobile) {
+    stripMobile.style.backgroundColor = c.bg;
+    $('stripFooterMobile').style.color = c.text;
   }
 }
 
@@ -162,46 +176,59 @@ function hexToRgb(hex) {
 }
 
 // ========== EFFECTS ==========
-function renderEffects() {
-  const grid = $('enhancement-grid');
+function renderEffects(containerId = 'enhancement-grid') {
+  const grid = $(containerId);
+  if (!grid) return;
   grid.innerHTML = '';
+  
+  const isMobileGrid = containerId === 'mobileEffects';
+  
   EFFECTS.forEach(e => {
     const btn = document.createElement('button');
-    btn.className = `enhancement-btn ${state.effect.id === e.id ? 'selected' : ''}`;
+    btn.className = `${isMobileGrid ? 'effect-btn' : 'enhancement-btn'} ${state.effect.id === e.id ? 'selected' : ''}`;
     btn.innerHTML = `
-      <span class="enhancement-icon">${e.label}</span>
-      <span class="enhancement-name">${e.name}</span>
+      <span class="${isMobileGrid ? 'effect-icon' : 'enhancement-icon'}">${e.label}</span>
+      <span class="${isMobileGrid ? 'effect-name' : 'enhancement-name'}">${e.name}</span>
     `;
     btn.onclick = () => {
       state.effect = e;
       updateStripPhotos();
-      renderEffects();
+      updateStripPhotosMobile();
+      renderEffects('enhancement-grid');
+      renderEffects('mobileEffects');
     };
     grid.appendChild(btn);
   });
 }
 
 // ========== STICKERS ==========
-function renderStickers() {
-  const grid = $('stickerGrid');
+function renderStickers(containerId = 'stickerGrid') {
+  const grid = $(containerId);
+  if (!grid) return;
   grid.innerHTML = '';
+  
   STICKERS.forEach(s => {
     const btn = document.createElement('button');
     btn.className = `sticker-btn ${state.selectedSticker === s ? 'selected' : ''}`;
     btn.textContent = s;
     btn.onclick = () => {
       state.selectedSticker = state.selectedSticker === s ? null : s;
-      renderStickers();
-      setDrawMode(false);
+      state.drawMode = false;
+      renderStickers('stickerGrid');
+      renderStickers('mobileStickerGrid');
+      updateDrawMode();
     };
     grid.appendChild(btn);
   });
 }
 
-function placeSticker(e) {
+function placeSticker(e, stripId, stickersContainerId) {
   if (!state.selectedSticker) return;
   
-  const strip = $('photoStrip');
+  const strip = $(stripId);
+  const container = $(stickersContainerId);
+  if (!strip || !container) return;
+  
   const rect = strip.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -212,76 +239,108 @@ function placeSticker(e) {
   sticker.style.left = x + 'px';
   sticker.style.top = y + 'px';
   sticker.style.transform = 'translate(-50%, -50%)';
+  sticker.style.pointerEvents = 'auto';
   
   sticker.onclick = (ev) => {
     ev.stopPropagation();
     sticker.remove();
-    state.placedStickers = state.placedStickers.filter(s => s !== sticker);
+    state.placedStickers = state.placedStickers.filter(s => s.el !== sticker);
   };
   
-  $('stickersContainer').appendChild(sticker);
-  state.placedStickers.push(sticker);
+  container.appendChild(sticker);
+  state.placedStickers.push({ el: sticker, container: stickersContainerId });
 }
 
 function clearStickers() {
   $('stickersContainer').innerHTML = '';
+  $('stickersContainerMobile').innerHTML = '';
   state.placedStickers = [];
 }
 
 // ========== DRAWING ==========
-function renderDrawControls() {
-  const colorsEl = $('drawColors');
-  colorsEl.innerHTML = '';
-  DRAW_COLORS.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className = `draw-color ${state.drawColor === c ? 'selected' : ''}`;
-    btn.style.background = c;
-    if (c === '#ffffff') btn.style.border = '1px solid #ccc';
-    btn.onclick = () => {
-      state.drawColor = c;
-      renderDrawControls();
-    };
-    colorsEl.appendChild(btn);
-  });
+function renderDrawControls(colorsId = 'drawColors', sizesId = 'drawSizes') {
+  const colorsEl = $(colorsId);
+  if (colorsEl) {
+    colorsEl.innerHTML = '';
+    DRAW_COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = `draw-color ${state.drawColor === c ? 'selected' : ''}`;
+      btn.style.background = c;
+      if (c === '#ffffff') btn.style.border = '1px solid #ccc';
+      btn.onclick = () => {
+        state.drawColor = c;
+        renderDrawControls('drawColors', 'drawSizes');
+        renderDrawControls('mobileDrawColors', 'mobileDrawSizes');
+      };
+      colorsEl.appendChild(btn);
+    });
+  }
 
-  const sizesEl = $('drawSizes');
-  sizesEl.innerHTML = '';
-  DRAW_SIZES.forEach(s => {
-    const btn = document.createElement('button');
-    btn.className = `draw-size ${state.drawSize === s ? 'selected' : ''}`;
-    const dot = document.createElement('div');
-    dot.className = 'size-dot';
-    dot.style.width = s + 4 + 'px';
-    dot.style.height = s + 4 + 'px';
-    btn.appendChild(dot);
-    btn.onclick = () => {
-      state.drawSize = s;
-      renderDrawControls();
-    };
-    sizesEl.appendChild(btn);
-  });
+  const sizesEl = $(sizesId);
+  if (sizesEl) {
+    sizesEl.innerHTML = '';
+    DRAW_SIZES.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = `draw-size ${state.drawSize === s ? 'selected' : ''}`;
+      const dot = document.createElement('div');
+      dot.className = 'size-dot';
+      dot.style.width = s + 4 + 'px';
+      dot.style.height = s + 4 + 'px';
+      btn.appendChild(dot);
+      btn.onclick = () => {
+        state.drawSize = s;
+        renderDrawControls('drawColors', 'drawSizes');
+        renderDrawControls('mobileDrawColors', 'mobileDrawSizes');
+      };
+      sizesEl.appendChild(btn);
+    });
+  }
 }
 
-function setDrawMode(active) {
-  state.drawMode = active;
+function updateDrawMode() {
+  // Desktop
   const container = $('canvasContainer');
-  if (active) {
-    container.classList.add('active');
-    state.selectedSticker = null;
-    renderStickers();
-  } else {
-    container.classList.remove('active');
+  if (container) {
+    if (state.drawMode) {
+      container.classList.add('active');
+    } else {
+      container.classList.remove('active');
+    }
+  }
+  
+  // Mobile
+  const containerMobile = $('canvasContainerMobile');
+  if (containerMobile) {
+    if (state.drawMode) {
+      containerMobile.classList.add('active');
+    } else {
+      containerMobile.classList.remove('active');
+    }
   }
 }
 
 function initDrawCanvas() {
+  // Desktop canvas
   const drawCanvas = $('drawCanvas');
   const strip = $('photoStrip');
-  drawCanvas.width = strip.offsetWidth;
-  drawCanvas.height = strip.offsetHeight;
-  state.drawCtx = drawCanvas.getContext('2d');
-  state.drawCtx.lineCap = 'round';
-  state.drawCtx.lineJoin = 'round';
+  if (drawCanvas && strip) {
+    drawCanvas.width = strip.offsetWidth;
+    drawCanvas.height = strip.offsetHeight;
+    state.drawCtx = drawCanvas.getContext('2d');
+    state.drawCtx.lineCap = 'round';
+    state.drawCtx.lineJoin = 'round';
+  }
+  
+  // Mobile canvas
+  const drawCanvasMobile = $('drawCanvasMobile');
+  const stripMobile = $('photoStripMobile');
+  if (drawCanvasMobile && stripMobile) {
+    drawCanvasMobile.width = stripMobile.offsetWidth;
+    drawCanvasMobile.height = stripMobile.offsetHeight;
+    state.drawCtxMobile = drawCanvasMobile.getContext('2d');
+    state.drawCtxMobile.lineCap = 'round';
+    state.drawCtxMobile.lineJoin = 'round';
+  }
 }
 
 function getSketchyPoints(x1, y1, x2, y2) {
@@ -302,52 +361,63 @@ function getSketchyPoints(x1, y1, x2, y2) {
   return points;
 }
 
-function drawSketchyLine(x1, y1, x2, y2) {
-  if (!state.drawCtx) return;
+function drawSketchyLine(drawCtx, x1, y1, x2, y2) {
+  if (!drawCtx) return;
   const points = getSketchyPoints(x1, y1, x2, y2);
   
-  state.drawCtx.strokeStyle = state.drawColor;
-  state.drawCtx.lineWidth = state.drawSize;
-  state.drawCtx.globalAlpha = 0.7 + Math.random() * 0.3;
+  drawCtx.strokeStyle = state.drawColor;
+  drawCtx.lineWidth = state.drawSize;
+  drawCtx.globalAlpha = 0.7 + Math.random() * 0.3;
   
-  state.drawCtx.beginPath();
-  state.drawCtx.moveTo(points[0].x, points[0].y);
+  drawCtx.beginPath();
+  drawCtx.moveTo(points[0].x, points[0].y);
   for (let i = 1; i < points.length; i++) {
-    state.drawCtx.lineTo(points[i].x, points[i].y);
+    drawCtx.lineTo(points[i].x, points[i].y);
   }
-  state.drawCtx.stroke();
-  state.drawCtx.globalAlpha = 1;
+  drawCtx.stroke();
+  drawCtx.globalAlpha = 1;
 }
 
 function saveDrawState() {
   const drawCanvas = $('drawCanvas');
-  state.drawHistory.push(drawCanvas.toDataURL());
-  if (state.drawHistory.length > 20) state.drawHistory.shift();
+  if (drawCanvas) {
+    state.drawHistory.push(drawCanvas.toDataURL());
+    if (state.drawHistory.length > 20) state.drawHistory.shift();
+  }
 }
 
 function undoDraw() {
   if (state.drawHistory.length > 0) {
-    const img = new Image();
-    img.onload = () => {
+    // Clear both canvases
+    if (state.drawCtx) {
       state.drawCtx.clearRect(0, 0, $('drawCanvas').width, $('drawCanvas').height);
-      if (state.drawHistory.length > 1) {
-        state.drawHistory.pop();
-        const prevImg = new Image();
-        prevImg.onload = () => state.drawCtx.drawImage(prevImg, 0, 0);
-        prevImg.src = state.drawHistory[state.drawHistory.length - 1];
-      } else {
-        state.drawHistory.pop();
-      }
-    };
-    img.src = state.drawHistory[state.drawHistory.length - 1];
+    }
+    if (state.drawCtxMobile) {
+      state.drawCtxMobile.clearRect(0, 0, $('drawCanvasMobile').width, $('drawCanvasMobile').height);
+    }
+    
+    if (state.drawHistory.length > 1) {
+      state.drawHistory.pop();
+      const img = new Image();
+      img.onload = () => {
+        if (state.drawCtx) state.drawCtx.drawImage(img, 0, 0);
+        if (state.drawCtxMobile) state.drawCtxMobile.drawImage(img, 0, 0);
+      };
+      img.src = state.drawHistory[state.drawHistory.length - 1];
+    } else {
+      state.drawHistory.pop();
+    }
   }
 }
 
 function clearDrawing() {
   if (state.drawCtx) {
     state.drawCtx.clearRect(0, 0, $('drawCanvas').width, $('drawCanvas').height);
-    state.drawHistory = [];
   }
+  if (state.drawCtxMobile) {
+    state.drawCtxMobile.clearRect(0, 0, $('drawCanvasMobile').width, $('drawCanvasMobile').height);
+  }
+  state.drawHistory = [];
 }
 
 // ========== CAMERA ==========
@@ -501,25 +571,47 @@ function updateMiniPreviews() {
 
 // ========== RESULT SCREEN ==========
 function prepareResult() {
+  // Desktop
   renderColors('review-colors');
-  renderEffects();
-  renderStickers();
-  renderDrawControls();
+  renderEffects('enhancement-grid');
+  renderStickers('stickerGrid');
+  renderDrawControls('drawColors', 'drawSizes');
   updateStripPhotos();
   
-  $('photoStrip').style.background = state.frameColor.bg;
-  $('stripFooter').style.color = state.frameColor.text;
-
+  // Mobile
+  renderColors('mobileColors');
+  renderEffects('mobileEffects');
+  renderStickers('mobileStickerGrid');
+  renderDrawControls('mobileDrawColors', 'mobileDrawSizes');
+  updateStripPhotosMobile();
+  
+  // Set initial frame color
+  selectFrameColor(state.frameColor);
+  
+  // Clear decorations
   clearStickers();
   clearDrawing();
   
+  // Init canvases after a short delay
   setTimeout(() => initDrawCanvas(), 100);
+  
+  // Show tool options
+  setMobileTool('colors');
 
+  // Flash effect - desktop
   const flashWindow = document.querySelector('.result-camera .flash-window');
   if (flashWindow) {
     flashWindow.classList.remove('flashing');
     void flashWindow.offsetWidth;
     flashWindow.classList.add('flashing');
+  }
+  
+  // Flash effect - mobile
+  const mobileFlashWindow = document.querySelector('.mobile-flash-window');
+  if (mobileFlashWindow) {
+    mobileFlashWindow.classList.remove('flashing');
+    void mobileFlashWindow.offsetWidth;
+    mobileFlashWindow.classList.add('flashing');
   }
 
   $('flash').classList.remove('hidden');
@@ -530,6 +622,7 @@ function prepareResult() {
 
 function updateStripPhotos() {
   const container = $('stripPhotos');
+  if (!container) return;
   container.innerHTML = '';
   state.photos.forEach((photo, i) => {
     const div = document.createElement('div');
@@ -542,6 +635,51 @@ function updateStripPhotos() {
     div.appendChild(img);
     container.appendChild(div);
   });
+}
+
+function updateStripPhotosMobile() {
+  const container = $('stripPhotosMobile');
+  if (!container) return;
+  container.innerHTML = '';
+  state.photos.forEach((photo, i) => {
+    const div = document.createElement('div');
+    div.className = 'strip-photo';
+    if (state.effect.filter) div.style.filter = state.effect.filter;
+    
+    const img = document.createElement('img');
+    img.src = photo;
+    img.alt = `Photo ${i + 1}`;
+    div.appendChild(img);
+    container.appendChild(div);
+  });
+}
+
+// ========== MOBILE TOOLBAR ==========
+function setMobileTool(tool) {
+  state.currentTool = tool;
+  state.drawMode = tool === 'draw';
+  state.selectedSticker = tool === 'stickers' ? state.selectedSticker : null;
+  
+  // Update toolbar buttons
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === tool);
+  });
+  
+  // Show/hide tool options
+  $('toolOptions').classList.remove('hidden');
+  $('optColors').classList.toggle('hidden', tool !== 'colors');
+  $('optStickers').classList.toggle('hidden', tool !== 'stickers');
+  $('optDraw').classList.toggle('hidden', tool !== 'draw');
+  $('optEffects').classList.toggle('hidden', tool !== 'effects');
+  
+  // Update draw mode
+  updateDrawMode();
+  
+  // Update sticker rendering
+  if (tool !== 'stickers') {
+    renderStickers('stickerGrid');
+    renderStickers('mobileStickerGrid');
+  }
 }
 
 // ========== DOWNLOAD ==========
@@ -580,15 +718,16 @@ async function download() {
       cx.filter = 'none';
     }
 
-    // Draw stickers
-    const strip = $('photoStrip');
-    if (strip) {
+    // Draw stickers from both containers
+    const drawStickersFrom = (stripId) => {
+      const strip = $(stripId);
+      if (!strip) return;
       const rect = strip.getBoundingClientRect();
       const scaleX = totalW / rect.width;
       const scaleY = totalH / rect.height;
       
-      const stickerElements = $('stickersContainer').querySelectorAll('.placed-sticker');
-      stickerElements.forEach(stickerEl => {
+      const stickers = strip.querySelectorAll('.placed-sticker');
+      stickers.forEach(stickerEl => {
         const x = parseFloat(stickerEl.style.left) * scaleX;
         const y = parseFloat(stickerEl.style.top) * scaleY;
         cx.font = '28px sans-serif';
@@ -596,7 +735,10 @@ async function download() {
         cx.textBaseline = 'middle';
         cx.fillText(stickerEl.textContent, x, y);
       });
-    }
+    };
+    
+    drawStickersFrom('photoStrip');
+    drawStickersFrom('photoStripMobile');
 
     // Draw drawing canvas
     const drawCanvas = $('drawCanvas');
@@ -604,7 +746,16 @@ async function download() {
       try {
         cx.drawImage(drawCanvas, 0, 0, totalW, totalH);
       } catch (e) {
-        console.warn('Could not draw canvas:', e);
+        console.warn('Could not draw desktop canvas:', e);
+      }
+    }
+    
+    const drawCanvasMobile = $('drawCanvasMobile');
+    if (drawCanvasMobile && drawCanvasMobile.width > 0 && drawCanvasMobile.height > 0) {
+      try {
+        cx.drawImage(drawCanvasMobile, 0, 0, totalW, totalH);
+      } catch (e) {
+        console.warn('Could not draw mobile canvas:', e);
       }
     }
 
@@ -635,15 +786,70 @@ function reset() {
   state.effect = EFFECTS[0];
   state.placedStickers = [];
   state.selectedSticker = null;
-  setDrawMode(false);
+  state.drawMode = false;
+  state.currentTool = 'colors';
   stopCamera();
   updateMiniPreviews();
   updateProgress();
-  $('customBox')?.classList.add('hidden');
   $('captureBtn').disabled = false;
   $('captureBtn').style.opacity = '1';
   $('captureStatus').textContent = '';
   showScreen('welcome');
+}
+
+// ========== DRAWING EVENT HANDLERS ==========
+function setupDrawingEvents(canvasId, ctxGetter) {
+  const drawCanvas = $(canvasId);
+  if (!drawCanvas) return;
+  
+  const getCtx = () => ctxGetter();
+  
+  drawCanvas.onmousedown = (e) => {
+    if (!state.drawMode) return;
+    state.isDrawing = true;
+    const rect = e.target.getBoundingClientRect();
+    state.lastX = e.clientX - rect.left;
+    state.lastY = e.clientY - rect.top;
+    saveDrawState();
+  };
+
+  drawCanvas.onmousemove = (e) => {
+    if (!state.isDrawing || !state.drawMode) return;
+    const rect = e.target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    drawSketchyLine(getCtx(), state.lastX, state.lastY, x, y);
+    state.lastX = x;
+    state.lastY = y;
+  };
+
+  drawCanvas.onmouseup = () => state.isDrawing = false;
+  drawCanvas.onmouseleave = () => state.isDrawing = false;
+
+  drawCanvas.ontouchstart = (e) => {
+    if (!state.drawMode) return;
+    e.preventDefault();
+    state.isDrawing = true;
+    const rect = e.target.getBoundingClientRect();
+    const touch = e.touches[0];
+    state.lastX = touch.clientX - rect.left;
+    state.lastY = touch.clientY - rect.top;
+    saveDrawState();
+  };
+
+  drawCanvas.ontouchmove = (e) => {
+    if (!state.isDrawing || !state.drawMode) return;
+    e.preventDefault();
+    const rect = e.target.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    drawSketchyLine(getCtx(), state.lastX, state.lastY, x, y);
+    state.lastX = x;
+    state.lastY = y;
+  };
+
+  drawCanvas.ontouchend = () => state.isDrawing = false;
 }
 
 // ========== EVENT LISTENERS ==========
@@ -655,13 +861,14 @@ function initEventListeners() {
   $('resetBtn').onclick = reset;
   $('clearStickers').onclick = clearStickers;
 
-  // Tabs
+  // Desktop tabs
   $('tabStickers').onclick = () => {
     $('tabStickers').classList.add('active');
     $('tabDraw').classList.remove('active');
     $('stickerPanel').classList.remove('hidden');
     $('drawPanel').classList.add('hidden');
-    setDrawMode(false);
+    state.drawMode = false;
+    updateDrawMode();
   };
 
   $('tabDraw').onclick = () => {
@@ -669,70 +876,51 @@ function initEventListeners() {
     $('tabStickers').classList.remove('active');
     $('drawPanel').classList.remove('hidden');
     $('stickerPanel').classList.add('hidden');
-    setDrawMode(true);
+    state.drawMode = true;
     state.selectedSticker = null;
-    renderStickers();
+    renderStickers('stickerGrid');
+    updateDrawMode();
   };
 
-  // Drawing controls
+  // Desktop drawing controls
   $('undoDraw').onclick = undoDraw;
   $('clearDraw').onclick = clearDrawing;
 
-  // Drawing canvas - mouse events
-  $('drawCanvas').onmousedown = (e) => {
-    if (!state.drawMode) return;
-    state.isDrawing = true;
-    const rect = e.target.getBoundingClientRect();
-    state.lastX = e.clientX - rect.left;
-    state.lastY = e.clientY - rect.top;
-    saveDrawState();
-  };
-
-  $('drawCanvas').onmousemove = (e) => {
-    if (!state.isDrawing || !state.drawMode) return;
-    const rect = e.target.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    drawSketchyLine(state.lastX, state.lastY, x, y);
-    state.lastX = x;
-    state.lastY = y;
-  };
-
-  $('drawCanvas').onmouseup = () => state.isDrawing = false;
-  $('drawCanvas').onmouseleave = () => state.isDrawing = false;
-
-  // Drawing canvas - touch events
-  $('drawCanvas').ontouchstart = (e) => {
-    if (!state.drawMode) return;
-    e.preventDefault();
-    state.isDrawing = true;
-    const rect = e.target.getBoundingClientRect();
-    const touch = e.touches[0];
-    state.lastX = touch.clientX - rect.left;
-    state.lastY = touch.clientY - rect.top;
-    saveDrawState();
-  };
-
-  $('drawCanvas').ontouchmove = (e) => {
-    if (!state.isDrawing || !state.drawMode) return;
-    e.preventDefault();
-    const rect = e.target.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    drawSketchyLine(state.lastX, state.lastY, x, y);
-    state.lastX = x;
-    state.lastY = y;
-  };
-
-  $('drawCanvas').ontouchend = () => state.isDrawing = false;
-
-  // Sticker placement
+  // Desktop strip click for stickers
   $('photoStrip').onclick = (e) => {
     if (state.selectedSticker && !state.drawMode) {
-      placeSticker(e);
+      placeSticker(e, 'photoStrip', 'stickersContainer');
     }
   };
+
+  // Mobile toolbar
+  $('toolColor').onclick = () => setMobileTool('colors');
+  $('toolSticker').onclick = () => setMobileTool('stickers');
+  $('toolDraw').onclick = () => setMobileTool('draw');
+  $('toolEffect').onclick = () => setMobileTool('effects');
+  
+  // Mobile buttons
+  if ($('mobileDownloadBtn')) $('mobileDownloadBtn').onclick = download;
+  if ($('mobileResetBtn')) $('mobileResetBtn').onclick = reset;
+  $('mobileClearStickers').onclick = clearStickers;
+  $('mobileUndoDraw').onclick = undoDraw;
+  $('mobileClearDraw').onclick = clearDrawing;
+  
+  // Mobile strip click for stickers
+  $('photoStripMobile').onclick = (e) => {
+    if (state.selectedSticker && !state.drawMode) {
+      placeSticker(e, 'photoStripMobile', 'stickersContainerMobile');
+    }
+  };
+
+  // Setup drawing on both canvases
+  setupDrawingEvents('drawCanvas', () => state.drawCtx);
+  setupDrawingEvents('drawCanvasMobile', () => state.drawCtxMobile);
+  
+  // Handle resize
+  window.addEventListener('resize', () => {
+    state.isMobile = window.innerWidth <= 768;
+  });
 }
 
 // ========== INITIALIZATION ==========

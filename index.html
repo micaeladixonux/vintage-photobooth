@@ -88,7 +88,8 @@
 
   <!-- RESULT -->
   <div id="result" class="screen result">
-    <div class="result-layout">
+    <!-- Desktop layout with camera -->
+    <div class="result-desktop">
       <div class="result-camera">
         <div class="polaroid-body">
           <div class="flash-unit">
@@ -108,7 +109,7 @@
         </div>
 
         <div class="strip-container">
-          <div id="photoStrip" class="photo-strip" style="background: #fff; position: relative;">
+          <div id="photoStrip" class="photo-strip" style="background: #fff;">
             <div id="stripPhotos" class="strip-photos"></div>
             <div id="stripFooter" class="strip-footer" style="color: #1a1a1a;">snaptime</div>
             <div id="stickersContainer"></div>
@@ -119,14 +120,12 @@
         </div>
       </div>
 
-      <div class="actions-section">
-        <!-- Frame Color Panel -->
+      <div class="actions-section desktop-actions">
         <div class="panel">
           <p class="panel-title">Frame Color</p>
           <div id="review-colors" class="color-options"></div>
         </div>
 
-        <!-- Stickers & Drawing Panel -->
         <div class="panel">
           <p class="panel-title">Decorate</p>
           <div class="edit-tabs">
@@ -137,7 +136,7 @@
           <div id="stickerPanel">
             <div class="sticker-grid" id="stickerGrid"></div>
             <div class="sticker-actions">
-              <button id="clearStickers" class="draw-action">🗑 Clear All Stickers</button>
+              <button id="clearStickers" class="draw-action">🗑 Clear All</button>
             </div>
             <p class="edit-hint">Tap sticker → tap photo to place • Tap placed to delete</p>
           </div>
@@ -157,23 +156,109 @@
                 <button id="clearDraw" class="draw-action">Clear All</button>
               </div>
             </div>
-            <p class="edit-hint">Draw on your photos with a sketchy pencil</p>
           </div>
         </div>
 
-        <!-- Effects Panel -->
         <div class="panel">
           <p class="panel-title">Effects</p>
           <div id="enhancement-grid" class="enhancement-grid"></div>
         </div>
 
-        <!-- Action Buttons -->
         <div class="action-buttons">
-          <button id="downloadBtn" class="btn btn-primary">
-            Download
-          </button>
+          <button id="downloadBtn" class="btn btn-primary">Download</button>
           <button id="resetBtn" class="btn btn-secondary">Start Over</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Mobile layout - photo focused -->
+    <div class="result-mobile">
+      <!-- Photo area with camera -->
+      <div class="mobile-photo-area">
+        <div class="mobile-camera-wrapper">
+          <!-- Mini camera -->
+          <div class="mobile-camera">
+            <div class="mobile-camera-flash">
+              <div class="mobile-flash-window"></div>
+            </div>
+            <div class="mobile-camera-body">
+              <div class="mobile-camera-lens"></div>
+              <div class="mobile-rainbow">
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+            <div class="mobile-film-slot"></div>
+          </div>
+          
+          <!-- Photo strip printing out -->
+          <div id="photoStripMobile" class="photo-strip-mobile" style="background: #fff;">
+            <div id="stripPhotosMobile" class="strip-photos"></div>
+            <div id="stripFooterMobile" class="strip-footer" style="color: #1a1a1a;">snaptime</div>
+            <div id="stickersContainerMobile"></div>
+            <div id="canvasContainerMobile" class="strip-canvas-container">
+              <canvas id="drawCanvasMobile"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tool options panel -->
+      <div id="toolOptions" class="tool-options">
+        <!-- Colors -->
+        <div id="optColors" class="tool-option-panel">
+          <div class="tool-option-colors" id="mobileColors"></div>
+        </div>
+        
+        <!-- Stickers -->
+        <div id="optStickers" class="tool-option-panel hidden">
+          <div class="mobile-sticker-grid" id="mobileStickerGrid"></div>
+          <button id="mobileClearStickers" class="mobile-clear-btn">Clear all</button>
+        </div>
+        
+        <!-- Draw -->
+        <div id="optDraw" class="tool-option-panel hidden">
+          <div class="mobile-draw-controls">
+            <div class="mobile-draw-colors" id="mobileDrawColors"></div>
+            <div class="mobile-draw-sizes" id="mobileDrawSizes"></div>
+            <div class="mobile-draw-actions">
+              <button id="mobileUndoDraw" class="mobile-draw-btn">↩</button>
+              <button id="mobileClearDraw" class="mobile-draw-btn">Clear</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Effects -->
+        <div id="optEffects" class="tool-option-panel hidden">
+          <div class="mobile-effects" id="mobileEffects"></div>
+        </div>
+      </div>
+
+      <!-- Bottom toolbar -->
+      <div class="mobile-toolbar">
+        <div class="toolbar-tools">
+          <button id="toolColor" class="tool-btn active" data-tool="colors">
+            <span class="tool-icon">🎨</span>
+            <span class="tool-label">Color</span>
+          </button>
+          <button id="toolSticker" class="tool-btn" data-tool="stickers">
+            <span class="tool-icon">✨</span>
+            <span class="tool-label">Stickers</span>
+          </button>
+          <button id="toolDraw" class="tool-btn" data-tool="draw">
+            <span class="tool-icon">✏️</span>
+            <span class="tool-label">Draw</span>
+          </button>
+          <button id="toolEffect" class="tool-btn" data-tool="effects">
+            <span class="tool-icon">⚡</span>
+            <span class="tool-label">Effects</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="mobile-action-buttons">
+        <button id="mobileDownloadBtn" class="mobile-download-btn">Download</button>
+        <button id="mobileResetBtn" class="mobile-reset-btn-text">Snap again</button>
       </div>
     </div>
   </div>
